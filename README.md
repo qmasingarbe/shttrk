@@ -2,6 +2,6 @@ SHTTRK est une librairie python 2.7 qui permet de communiquer facilement avec sh
 
 shttrk.py contient la librairie
 
-Le dossier example contient plusieurs exemples d'utilisation
+example contient plusieurs exemples d'utilisation
 
-SHTTRK documentation.pdf contient la documentation complète
+shttrk_documentation.pdf contient la documentation complète
