@@ -212,3 +212,7 @@ class shttrk():
 		else:
 			response =  "Etat n'est pas un nombre"
 		return response
+
+	#####     MAIL     #####
+	def sendNotification(self, assetId, comId):
+		return self.postEncode('/json/send-notification.php',{'id_item':assetId, 'id_comment':comId})
