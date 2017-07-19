@@ -1,9 +1,10 @@
+# coding: utf8
 ####	SHTTRK	  ####
 # Python library to connect to shottracker
 # v1.1 - 2017
 ######################
 
-import requests #connect to shottracker
+import requests #connect to websites
 import re #parse results
 import HTMLParser #parse html
 parser = HTMLParser.HTMLParser()
@@ -12,7 +13,12 @@ class shttrk():
 	def __init__(self, url, login, password):
 		s = requests.Session() #request object
 		s.get(url) #ping url (add verify=False if problem in local connection)
-		s.post(url+'/index.php', data={'login': login, 'password': password }) #connect
+		response = s.post(url+'/index.php', data={'login': login, 'password': password }) #connect
+		#raise error if cannot connect
+		if re.search('<div class="topmessage" >Message : \nVous n',response.text.encode('utf8')):
+			raise IOError("Cannot connect to shotTracker")
+		else:
+			print "Connected"
 		self.session = s
 		self.url = url
 
@@ -24,7 +30,7 @@ class shttrk():
 
 
 	######	  PROJECT	  ######
-	def getProjects(self): #dict
+	def getProjects(self):
 		#download html homepage
 		response=self.session.get(self.url+'/index.php')
 		response=response.text.encode('utf8')
@@ -35,7 +41,7 @@ class shttrk():
 		return response
 
 	######	  ASSETS	  ######
-	def getAssets(self, project): #LIST recuperer list des assets et de leurs info en dict
+	def getAssets(self, project): #get all the assets
 		if type(project)=="int":
 			project=str(project)
 		#requete des assets
@@ -43,14 +49,14 @@ class shttrk():
 		#json to list
 		return response.json()
 
-	def getAssetsSimple(self, project): #DICT recuperer simplement dictionnaire des assets et leurs id
+	def getAssetsSimple(self, project): #get all the assets ids only
 		response=self.getAssets(project)
 		data={}
 		for asset in response:
 			data[asset['name']]=asset['id']
 		return data
 
-	def getAssetsInBin(self,project): #LIST recuperer list des assets correspondant au tag POUBELLE et leurs info en dict
+	def getAssetsInBin(self,project): #get all the assests in bin
 		#verifier le numero de projet
 		if type(project)=="int":
 			project=str(project)
@@ -59,26 +65,29 @@ class shttrk():
 		#json to list
 		return response.json()
 
-	def createAsset(self,project,name,description='',length='0'): #CREER un nouveau asset a partir de son nom
+	def createAsset(self,project,name,description='',length=0): #create new asset
 		name=str(name)
 		length=str(length)
 		return self.postEncode('/json/create-item-info.php',{'name': name, 'length': length, 'decription': description, 'id_project': project })
 
-	def deleteAsset(self,asset): #DELETE un asset en fonction de son id
+	def deleteAsset(self,asset): #selete an asset
 		if type(asset)=="int":
 			asset=str(asset)
 		return self.postEncode('/json/delete-item.php',{'id':asset})
 
 	######    ASSET INFO    ######
-	def getAssetInfo(self,assetId):
+	def getAssetInfo(self,assetId): #get infos of an asset
 		response=self.session.post(self.url+'/json/get-details.php?id='+str(assetId))
 		data = response.json()
-		del data['comments']
+		try :
+			del data['comments']
+		except:
+			print "Not able to process data"
 		return data
 
-	def updateInfo(self,asset,name=False,length=False,description=False,storage=False):
+	def updateInfo(self,asset,name=False,length=False,description=False,storage=False): #change infos of an asset
 		assetInfo = self.getAssetInfo(asset)
-		if name:
+		if name==False:
 			name = assetInfo['name']
 		if length==False:
 			length = assetInfo['length']
@@ -88,7 +97,7 @@ class shttrk():
 			storage = assetInfo['storage']
 		return self.postEncode('/json/save-item-info.php',{'id':asset,'name':name,'length':str(length),'description':description,'storage':storage})
 
-	def updateThumbnail(self,asset,pathToFile):
+	def updateThumbnail(self,asset,pathToFile): #change thumbnail of an asset
 		response = self.session.post(self.url+'/upload-vignette.php?id='+str(asset),files={'file': open(pathToFile,'rb')})
 		response = response.text.encode('utf8')
 		return response
@@ -135,11 +144,12 @@ class shttrk():
 
 	######	  COMMENTS ATTACHEMENTS	  ######
 	def postFile(self,com,pathToFile): #attacher un file a un commentaire
+		print "Uploading file {0}".format(pathToFile)
 		response = self.session.post(self.url+'/upload-attach.php?id='+str(com),files={'file': open(pathToFile,'rb')})
 		response = response.text.encode('utf8')
 		return response
 
-	def deleteFile(self, asset, com, fileId): #deleter un file a partir de l'id du file
+	def deleteFile(self, asset, com, fileName): #deleter un file a partir de l'id du file
 		response = self.session.get(self.url+'/json/get-details.php?id='+str(asset))
 		data = response.json() #convertir le json en dict
 		reponse=False
@@ -147,7 +157,7 @@ class shttrk():
 			if comment['id_comment']==str(com): #chercher le bon com
 				for fichier in comment['files']: #iterer sur le files du com
 					splitting=fichier['file'].split('/')
-					if splitting[len(splitting)-1]==fileId: #chercher le bon file dans le com
+					if splitting[len(splitting)-1]==fileName: #chercher le bon file dans le com
 						response = self.session.post(self.url+'/json/update-comment.php', data={'id': com, 'text': comment['text'], 'delete-attach[]': fichier['id']}) #supprimer le file
 						response = response.text.encode('utf8')
 						break;
@@ -199,12 +209,16 @@ class shttrk():
 		return response
 
 	def updateTag(self,assetId, tagId, state):
-		if type(state)=='int':
+		if type(state)==type(0):
 			idSpecific = self.findSpecificTagId(assetId,tagId)
 			if idSpecific:
-				response = self.postEncode('/json/update-tag-item.php',{'id':idSpecific,'value':str state)})
+				response = self.postEncode('/json/update-tag-item.php',{'id':idSpecific,'value': str(state)})
 			else:
 				response = "Pas de tag correspondant"
 		else:
 			response =  "Etat n'est pas un nombre"
 		return response
+
+	#####     MAIL     #####
+	def sendNotification(self, assetId, comId):
+		return self.postEncode('/json/send-notification.php',{'id_item':assetId, 'id_comment':comId})
