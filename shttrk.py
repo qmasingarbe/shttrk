@@ -1,3 +1,4 @@
+# coding: utf8
 ####	SHTTRK	  ####
 # Python library to connect to shottracker
 # v1.1 - 2017
@@ -12,7 +13,12 @@ class shttrk():
 	def __init__(self, url, login, password):
 		s = requests.Session() #request object
 		s.get(url) #ping url (add verify=False if problem in local connection)
-		s.post(url+'/index.php', data={'login': login, 'password': password }) #connect
+		response = s.post(url+'/index.php', data={'login': login, 'password': password }) #connect
+		#raise error if cannot connect
+		if re.search('<div class="topmessage" >Message : \nVous n',response.text.encode('utf8')):
+			raise IOError("Cannot connect to shotTracker")
+		else:
+			print "Connected"
 		self.session = s
 		self.url = url
 
