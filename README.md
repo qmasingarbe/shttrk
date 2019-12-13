@@ -1,7 +1,5 @@
-SHTTRK est une librairie python 2.7 qui permet de communiquer facilement avec shotTracker.
+SHTTRK is a python 2.7 lib allowing easy communication with the shotTracker website.
 
-shttrk.py contient la librairie
+see 'examples' for use cases
 
-examples contient plusieurs exemples d'utilisation
-
-shttrk_documentation.pdf contient la documentation complète
+see shttrk_documentation.pdf for documentation
